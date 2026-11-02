@@ -1,16 +1,18 @@
-import os
-import json
+son
+import re
 from openai import OpenAI
 
-# 从环境变量读取（本地测试如果在 .env 里配了就生效，云端读 Secrets）
-api_key = os.environ.get("ZHIPU_API_KEY")
+# ==========================================
+# ⚠️ 请把下面双引号里的内容，换成你真实的智谱 Key
+# ==========================================
+api_key = "sk-8ea27bed757a4037b8d4c94653d36090.7wIvZLeLrppXzOmc"
+
 client = OpenAI(
     api_key=api_key,
     base_url="https://open.bigmodel.cn/api/paas/v4"
 )
 
 def diagnose(question, student_answer, correct_answer):
-    # 注意：升级了Prompt，让大模型多输出一个 radar_scores 用于雷达图
     prompt = f"""你是一个初中数学学情诊断专家。
 题目：{question}
 学生解答：{student_answer}
@@ -28,7 +30,7 @@ def diagnose(question, student_answer, correct_answer):
       "逻辑推理": 0.5
   }}
 }}
-注意：radar_scores 里的数值请根据学生错误情况，在 0.1 到 0.9 之间随机打分。"""
+注意：radar_scores 里的数值请根据学生错误情况，在 0.1 到 0.9 之间打分。"""
     
     resp = client.chat.completions.create(
         model="glm-4-flash",
@@ -36,19 +38,33 @@ def diagnose(question, student_answer, correct_answer):
         temperature=0.3
     )
     text = resp.choices[0].message.content.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1].rsplit("```", 1)[0]
+    
+    # 提取 JSON 内容，防止大模型带废话
+    match = re.search(r'\{.*\}', text, re.DOTALL)
+    if match:
+        text = match.group(0)
+        
     return json.loads(text)
 
-# 新增：生成变式题的工具函数
 def generate_similar_questions(knowledge_points):
-    prompt = f"""请针对以下知识点，生成 2 道初中数学变式训练题，难度逐渐递增。
+    # 强化 Prompt：严禁输出公式符号或代码块，纯文字描述
+    prompt = f"""请针对以下初中数学知识点，生成 2 道变式训练题。
 知识点：{', '.join(knowledge_points)}
-请直接输出题目和简短答案，格式清晰。"""
+要求：
+1. 难度由浅入深。
+2. 给出题目和简短解答。
+3. 【极其重要】：请直接使用纯文本输出，不要使用任何Markdown符号（如 #、** 等），不要使用 LaTeX 公式符号（如 \\( 或 \\frac 等），所有数学算式直接使用普通键盘字符表示（如 x^2 + 2x = 0），避免页面乱码。"""
     
     resp = client.chat.completions.create(
         model="glm-4-flash",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7
     )
-    return resp.choices[0].message.content.strip()
+    
+    text = resp.choices[0].message.content.strip()
+    
+    # 再次强效清洗：去掉可能残留的代码块标记
+    text = text.replace("```markdown", "").replace("```json", "").replace("```", "")
+    text = text.replace("\\(", "").replace("\\)", "").replace("$", "")
+    
+    return text.strip()

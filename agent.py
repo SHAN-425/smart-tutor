@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 client = OpenAI(
-    api_key=os.getenv(ZHIPU_API_KEY), 
+    api_key=os.getenv(“ZHIPU_API_KEY”), 
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
 )
 

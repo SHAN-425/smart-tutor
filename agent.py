@@ -1,13 +1,12 @@
 import os
 import json
 from openai import OpenAI
-from dotenv import load_dotenv
 
-load_dotenv()
-
+# 注意：这里使用的是 os.environ 来读取云端配置的 Secrets
+api_key = os.environ.get("ZHIPU_API_KEY")
 client = OpenAI(
-    api_key=os.getenv(“ZHIPU_API_KEY”), 
-    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
+    api_key=api_key,
+    base_url="https://open.bigmodel.cn/api/paas/v4"
 )
 
 def diagnose(question, student_answer, correct_answer):
@@ -24,7 +23,7 @@ def diagnose(question, student_answer, correct_answer):
   "socratic_hint": "一个启发式提问，不要直接给答案"
 }}"""
     resp = client.chat.completions.create(
-        model="qwen-plus",
+        model="glm-4-flash", # 如果你用智谱，这里一般是 glm-4-flash
         messages=[{"role": "user", "content": prompt}],
         temperature=0.3
     )
